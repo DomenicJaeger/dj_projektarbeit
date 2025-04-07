@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../logic/rule.dart';
 import '../logic/rule_type.dart';
+import '../logic/rule_config.dart';
 
 class RuleEditorScreen extends StatefulWidget {
   final Rule? existingRule;
@@ -23,39 +24,30 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
       final rule = widget.existingRule!;
       selectedRuleType = rule.type;
 
-      switch (rule) {
-        case SimpleRegexRule r:
-          _inputControllers['Regex'] = TextEditingController(text: r.regex);
-          _inputControllers['Excel Spalte'] = TextEditingController(text: r.excelField);
-          _inputControllers['Regelname'] = TextEditingController(text: r.name);
-          break;
+      final config = rule.toConfig();
 
-        case PathSegmentRule r:
-          _inputControllers['Position'] = TextEditingController(text: r.index.toString());
-          _inputControllers['Excel Spalte'] = TextEditingController(text: r.excelField);
-          _inputControllers['Regelname'] = TextEditingController(text: r.name);
-          break;
-
-        case ReversePathSegmentRule r:
-          _inputControllers['Rückwärts-Index'] = TextEditingController(text: r.reverseIndex.toString());
-          _inputControllers['Excel Spalte'] = TextEditingController(text: r.excelField);
-          _inputControllers['Regelname'] = TextEditingController(text: r.name);
-          break;
+      if (config.regex != null) {
+        _inputControllers['Regex'] = TextEditingController(text: config.regex);
       }
-    }
-  }
+      if (config.index != null) {
+        _inputControllers['Position'] = TextEditingController(text: config.index.toString());
+      }
+      if (config.reverseIndex != null) {
+        _inputControllers['Rückwärts-Index'] = TextEditingController(text: config.reverseIndex.toString());
+      }
 
-  List<Eingabe> getInputs() {
-    return selectedRuleType?.eingaben ?? [];
+      _inputControllers['Excel Spalte'] = TextEditingController(text: config.excelField);
+      _inputControllers['Regelname'] = TextEditingController(text: config.name);
+    }
   }
 
   void _saveRule() {
     if (selectedRuleType == null) return;
 
-    final inputs = getInputs();
-    List<Eingabewert> eingabeWerte = [];
+    final eingaben = selectedRuleType!.eingaben;
+    List<String> values = [];
 
-    for (var eingabe in inputs) {
+    for (var eingabe in eingaben) {
       final controller = _inputControllers[eingabe.label];
       if (controller == null || controller.text.trim().isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -63,16 +55,18 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
         );
         return;
       }
-      eingabeWerte.add(Eingabewert(controller.text.trim()));
+      values.add(controller.text.trim());
     }
 
-    final rule = RuleFactory.fromEingaben(selectedRuleType!, eingabeWerte);
+    final config = selectedRuleType!.configFromInputs(values);
+    final rule = selectedRuleType!.createRule(config);
+
     Navigator.pop(context, rule);
   }
 
   @override
   Widget build(BuildContext context) {
-    final visibleInputs = getInputs();
+    final selectedInputs = selectedRuleType?.eingaben ?? [];
 
     return Scaffold(
       appBar: AppBar(
@@ -100,14 +94,14 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
                 setState(() {
                   selectedRuleType = value;
                   _inputControllers.clear();
-                  for (var eingabe in getInputs()) {
+                  for (var eingabe in selectedRuleType?.eingaben ?? []) {
                     _inputControllers[eingabe.label] = TextEditingController();
                   }
                 });
               },
             ),
             SizedBox(height: 16),
-            ...visibleInputs.map((eingabe) {
+            ...selectedInputs.map((eingabe) {
               return Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8.0),
                 child: TextField(
@@ -119,7 +113,7 @@ class _RuleEditorScreenState extends State<RuleEditorScreen> {
                   keyboardType: eingabe.valueType == 'int' ? TextInputType.number : TextInputType.text,
                 ),
               );
-            }),
+            }).toList(),
             SizedBox(height: 24),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,

@@ -1,6 +1,5 @@
 import 'package:dj_projektarbeit/gui/preview_screen.dart';
 import 'package:dj_projektarbeit/gui/rule_editor_screen.dart';
-import 'package:dj_projektarbeit/logic/excel_exporter.dart';
 import 'package:dj_projektarbeit/logic/functions/save_load.dart';
 import 'package:dj_projektarbeit/logic/pathfinder.dart';
 import 'package:dj_projektarbeit/logic/rule.dart';

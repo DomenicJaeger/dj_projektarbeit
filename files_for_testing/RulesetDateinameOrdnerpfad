@@ -1,1 +1,0 @@
-[{"type":"fileName","name":"Dateiname extrahieren","excelField":"Dateiname","regex":"[^\\\\/]+$"},{"type":"parentDirectory","name":"Ordnerpfad extrahieren","excelField":"Ordnerpfad","regex":"^.*(?=\\\\[^\\\\]+$)"}]

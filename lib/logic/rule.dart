@@ -1,10 +1,6 @@
 import 'dart:io';
-
 import 'package:dj_projektarbeit/logic/rule_type.dart';
-
-/// -----------------------------
-/// Abstract Rule
-/// -----------------------------
+import 'package:dj_projektarbeit/logic/rule_config.dart';
 
 abstract class Rule {
   RuleType get type;
@@ -13,36 +9,78 @@ abstract class Rule {
   String get regex;
   String? apply(String input);
   Map<String, dynamic> toJson();
+  RuleConfig toConfig();
 }
 
-/// -----------------------------
-/// Concrete Rule
-/// -----------------------------
+class FileNameRule implements Rule {
+  @override
+  RuleType get type => RuleType.fileName;
+
+  @override
+  String get name => 'Dateiname';
+
+  @override
+  String get excelField => 'Dateiname';
+
+  @override
+  String get regex => r'[^\\/]+$';
+
+  @override
+  String? apply(String input) {
+    final match = RegExp(regex).firstMatch(input);
+    return match?.group(0);
+  }
+
+  @override
+  Map<String, dynamic> toJson() => {'type': type.name};
+
+  @override
+  RuleConfig toConfig() => RuleConfig(name: name, excelField: excelField);
+}
+
+class ParentDirectoryRule implements Rule {
+  @override
+  RuleType get type => RuleType.parentDirectory;
+
+  @override
+  String get name => 'Ordnerpfad';
+
+  @override
+  String get excelField => 'Ordnerpfad';
+
+  @override
+  String get regex => r'^.*(?=\\[^\\]+$)';
+
+  @override
+  String? apply(String input) {
+    final match = RegExp(regex).firstMatch(input);
+    return match?.group(0);
+  }
+
+  @override
+  Map<String, dynamic> toJson() => {'type': type.name};
+
+  @override
+  RuleConfig toConfig() => RuleConfig(name: name, excelField: excelField);
+}
 
 class SimpleRegexRule implements Rule {
-  @override
-  final RuleType type;
-
-  @override
   final String name;
-
-  @override
   final String excelField;
-
-  @override
   final String regex;
 
   SimpleRegexRule({
-    required this.type,
     required this.name,
     required this.excelField,
     required this.regex,
   });
 
   @override
+  RuleType get type => RuleType.regEx;
+
+  @override
   String? apply(String input) {
-    final regExp = RegExp(regex, caseSensitive: false, multiLine: true);
-    final match = regExp.firstMatch(input);
+    final match = RegExp(regex).firstMatch(input);
     return match?.group(0);
   }
 
@@ -54,12 +92,18 @@ class SimpleRegexRule implements Rule {
         'regex': regex,
       };
 
+  @override
+  RuleConfig toConfig() => RuleConfig(
+        name: name,
+        excelField: excelField,
+        regex: regex,
+      );
+
   static SimpleRegexRule fromJson(Map<String, dynamic> json) {
     return SimpleRegexRule(
-      type: RuleType.values.firstWhere((e) => e.name == json['type']),
-      name: json['name'],
-      excelField: json['excelField'],
-      regex: json['regex'],
+      name: json['name'] ?? '',
+      excelField: json['excelField'] ?? '',
+      regex: json['regex'] ?? '',
     );
   }
 }
@@ -69,7 +113,11 @@ class PathSegmentRule implements Rule {
   final String excelField;
   final int index;
 
-  PathSegmentRule({required this.name, required this.excelField, required this.index});
+  PathSegmentRule({
+    required this.name,
+    required this.excelField,
+    required this.index,
+  });
 
   @override
   RuleType get type => RuleType.pathSegment;
@@ -92,11 +140,18 @@ class PathSegmentRule implements Rule {
         'index': index,
       };
 
+  @override
+  RuleConfig toConfig() => RuleConfig(
+        name: name,
+        excelField: excelField,
+        index: index,
+      );
+
   static PathSegmentRule fromJson(Map<String, dynamic> json) {
     return PathSegmentRule(
-      name: json['name'],
-      excelField: json['excelField'],
-      index: json['index'],
+      name: json['name'] ?? '',
+      excelField: json['excelField'] ?? '',
+      index: json['index'] ?? 0,
     );
   }
 }
@@ -134,79 +189,18 @@ class ReversePathSegmentRule implements Rule {
         'reverseIndex': reverseIndex,
       };
 
+  @override
+  RuleConfig toConfig() => RuleConfig(
+        name: name,
+        excelField: excelField,
+        reverseIndex: reverseIndex,
+      );
+
   static ReversePathSegmentRule fromJson(Map<String, dynamic> json) {
     return ReversePathSegmentRule(
-      name: json['name'],
-      excelField: json['excelField'],
-      reverseIndex: json['reverseIndex'],
+      name: json['name'] ?? '',
+      excelField: json['excelField'] ?? '',
+      reverseIndex: json['reverseIndex'] ?? 0,
     );
-  }
-}
-
-/// -----------------------------
-/// RuleFactory
-/// -----------------------------
-
-class RuleFactory {
-  static Rule fromEingaben(RuleType type, List<Eingabewert> eingaben) {
-    switch (type) {
-      case RuleType.fileName:
-        return SimpleRegexRule(
-          type: type,
-          name: type.label,
-          excelField: type.defaultExcelField!,
-          regex: type.defaultRegex!,
-        );
-      case RuleType.parentDirectory:
-        return SimpleRegexRule(
-          type: type,
-          name: type.label,
-          excelField: type.defaultExcelField!,
-          regex: type.defaultRegex!,
-        );
-      case RuleType.pathSegment:
-        final index = int.parse(eingaben[0].value);
-        return PathSegmentRule(
-          // name: 'Ordner an Position $index extrahieren',
-          name: eingaben[2].value,
-          excelField: eingaben[1].value,
-          index: index,
-        );
-      case RuleType.reversePathSegment:
-        return ReversePathSegmentRule(
-          // name: 'Ordner von hinten auswählen',
-          name: eingaben[2].value,
-          excelField: eingaben[1].value,
-          reverseIndex: int.parse(eingaben[0].value),
-        );
-      case RuleType.regEx:
-        return SimpleRegexRule(
-          type: type,
-          name: eingaben[2].value,
-          excelField: eingaben[1].value,
-          regex: eingaben[0].value,
-        );
-    }
-  }
-
-  static Rule fromJson(Map<String, dynamic> json) {
-    final typeName = json['type'] as String;
-    final type = RuleType.values.firstWhere(
-      (e) => e.name == typeName,
-      orElse: () => throw Exception('Unbekannter Regeltyp: $typeName'),
-    );
-
-    switch (type) {
-      case RuleType.fileName:
-      case RuleType.parentDirectory:
-      case RuleType.regEx:
-        return SimpleRegexRule.fromJson(json);
-
-      case RuleType.pathSegment:
-        return PathSegmentRule.fromJson(json);
-
-      case RuleType.reversePathSegment:
-        return ReversePathSegmentRule.fromJson(json);
-    }
   }
 }
